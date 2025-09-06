@@ -1,0 +1,50 @@
+﻿name: .NET
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+        
+    - name: Build and Test
+      shell: pwsh
+      run: |
+        Get-ChildItem -Recurse -Filter *.csproj | Where-Object { $_.FullName -match "_uTest" } | ForEach-Object {
+        $projName = $_.BaseName
+        dotnet test $_.FullName `
+        --configuration Debug `
+        --logger "trx;LogFileName=${projName}_results.trx" `
+        --results-directory ./TestResults
+        }
+
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: TestResults
+        path: ./TestResults
+
+    - name: Report Test Results
+      if: always()
+      uses: dorny/test-reporter@v1
+      with:
+        name: NUnit Tests
+        path: ./TestResults/*.trx
+        reporter: dotnet-trx

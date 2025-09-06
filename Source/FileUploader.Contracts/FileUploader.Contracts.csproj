@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+
+		<OutputPath>..\..\..\bin\x64\debug\</OutputPath>
+		<BaseOutputPath>..\..\..\bin\x64\debug\</BaseOutputPath>
+		<PublishDir>..\..\..\bin\x64\debug\publish\</PublishDir>
+
+		<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <PackageReference Include="Microsoft.Bcl.HashCode" Version="6.0.0" />
+	</ItemGroup>
+
+</Project>

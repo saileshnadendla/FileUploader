@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fileuploader-redis-service
+  namespace: file-uploader
+spec:
+  selector:
+    app: fileuploader-redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+      nodePort: 31266   # <-- custom or auto-assigned
+  type: NodePort

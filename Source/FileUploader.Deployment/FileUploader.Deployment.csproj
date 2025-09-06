@@ -1,0 +1,68 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<PublishDir>..\..\..\bin\x64\debug</PublishDir>
+		<OutputPath>..\..\..\bin\x64\debug\</OutputPath>
+		<BaseOutputPath>..\..\..\bin\x64\debug\</BaseOutputPath>
+		<SelfContained>true</SelfContained>
+		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+		<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+	</PropertyGroup>
+	<ItemGroup>
+	  <None Remove="Deploy\Artifacts\Redis\fileuploader-redis-service.yml" />
+	  <None Remove="Deploy\Artifacts\Server\fileuploader-server-deployment.yml" />
+	  <None Remove="Deploy\Artifacts\Server\kustomization.yml" />
+	  <None Remove="Deploy\Artifacts\Worker\fileuploader-worker-deployment.yml" />
+	  <None Remove="Deploy\Artifacts\Worker\kustomization.yml" />
+	  <None Remove="Deploy\Scripts\stop.ps1" />
+	  <None Remove="DOCKERFILE" />
+	  <None Remove="Deploy\Scripts\start.ps1" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Content Include="Deploy\Artifacts\Redis\fileuploader-redis-service.yml">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Deploy\Artifacts\Server\fileuploader-server-deployment.yml">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Deploy\Artifacts\Server\kustomization.yml">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Deploy\Artifacts\Worker\fileuploader-worker-deployment.yml">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Deploy\Artifacts\Worker\kustomization.yml">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Deploy\Scripts\stop.ps1">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Deploy\Artifacts\Redis\fileuploader-redis-deployment.yml">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Deploy\Artifacts\Redis\kustomization.yml">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Deploy\Artifacts\Redis\fileuploader-namespace.yml">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Deploy\Artifacts\Redis\fileuploader-redis-pvc.yml">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Deploy\Scripts\start.ps1">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.AspNetCore.Http" Version="2.3.0" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.8" />
+		<PackageReference Include="Polly" Version="8.6.3" />
+		<PackageReference Include="StackExchange.Redis" Version="2.9.11" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\FileUploader.Contracts\FileUploader.Contracts.csproj" />
+	</ItemGroup>
+</Project>

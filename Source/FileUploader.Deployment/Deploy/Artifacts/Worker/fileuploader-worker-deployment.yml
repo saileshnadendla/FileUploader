@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fileuploader-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fileuploader-worker
+  template:
+    metadata:
+      labels:
+        app: fileuploader-worker
+    spec:
+      tolerations:
+      - key: "OS" 
+        operator: "Equal" 
+        value: "Windows" 
+        effect: "NoSchedule" 
+      nodeSelector: 
+        kubernetes.io/os: windows
+      containers:
+      - name: fileuploader-worker
+        image: fileuploaderworker:v1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5000
+        - containerPort: 5001
+        env:
+        - name: REDIS_HOST
+          value: "172.19.1.100:31266"

@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fileuploader-redis
+  namespace: file-uploader
+  labels:
+    app: fileuploader-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fileuploader-redis
+  template:
+    metadata:
+      labels:
+        app: fileuploader-redis
+    spec:
+      containers:
+        - name: fileuploader-redis
+          image: redis:7.2-alpine
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          volumeMounts:
+            - name: redis-storage
+              mountPath: /data
+      volumes:
+        - name: redis-storage
+          persistentVolumeClaim:
+            claimName: redis-pvc
+      nodeSelector:
+        kubernetes.io/os: linux

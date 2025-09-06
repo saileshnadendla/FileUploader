@@ -1,0 +1,103 @@
+﻿<Window x:Class="FileUploader.Client.View.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Upload Client" Height="800" Width="1600">
+
+    <Window.Resources>
+        <!-- CollectionViewSource for each status -->
+        <CollectionViewSource x:Key="ReadyFilesView" Source="{Binding Files}" Filter="ReadyFiles_Filter"/>
+        <CollectionViewSource x:Key="QueuedFilesView" Source="{Binding Files}" Filter="QueuedFiles_Filter"/>
+        <CollectionViewSource x:Key="CompletedFilesView" Source="{Binding Files}" Filter="CompletedFiles_Filter"/>
+        <CollectionViewSource x:Key="FailedFilesView" Source="{Binding Files}" Filter="FailedFiles_Filter"/>
+    </Window.Resources>
+
+    <DockPanel>
+        <!-- Top Buttons -->
+        <StackPanel Orientation="Horizontal" Margin="8" DockPanel.Dock="Top">
+            <Button Content="Select Files" Width="120" Margin="0,0,8,0" Command="{Binding OnSelectFiles}"/>
+            <Button Content="Upload" Width="120" Command="{Binding OnUploadFiles}"/>
+        </StackPanel>
+
+        <!-- 4 Blocks for Status -->
+        <Grid Margin="8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Ready -->
+            <GroupBox Header="Ready Files" Grid.Row="0" Margin="5">
+                <DataGrid ItemsSource="{Binding Source={StaticResource ReadyFilesView}}" 
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="JobId" Binding="{Binding JobId}" Width="220"/>
+                        <DataGridTextColumn Header="File" Binding="{Binding FileName}" Width="*"/>
+                        <DataGridTextColumn Header="Size (MB)" Binding="{Binding SizeMB}" Width="110"/>
+                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="120"/>
+                        <DataGridTextColumn Header="Progress" Binding="{Binding Progress}" Width="100"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </GroupBox>
+
+            <!-- Queued -->
+            <GroupBox Header="Queued Files" Grid.Row="1" Margin="5">
+                <DataGrid ItemsSource="{Binding Source={StaticResource QueuedFilesView}}" 
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="JobId" Binding="{Binding JobId}" Width="220"/>
+                        <DataGridTextColumn Header="File" Binding="{Binding FileName}" Width="*"/>
+                        <DataGridTextColumn Header="Size (MB)" Binding="{Binding SizeMB}" Width="110"/>
+                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="120"/>
+                        <DataGridTextColumn Header="Progress" Binding="{Binding Progress}" Width="100"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </GroupBox>
+
+            <!-- Completed -->
+            <GroupBox Header="Completed Files" Grid.Row="2" Margin="5">
+                <DataGrid ItemsSource="{Binding Source={StaticResource CompletedFilesView}}" 
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="JobId" Binding="{Binding JobId}" Width="220"/>
+                        <DataGridTextColumn Header="File" Binding="{Binding FileName}" Width="*"/>
+                        <DataGridTextColumn Header="Size (MB)" Binding="{Binding SizeMB}" Width="110"/>
+                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="120"/>
+                        <DataGridTextColumn Header="Progress" Binding="{Binding Progress}" Width="100"/>
+                        <DataGridTemplateColumn Header="Download" Width="Auto">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="Download"
+                                                Command="{Binding DataContext.DownloadCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </GroupBox>
+
+            <!-- Failed -->
+            <GroupBox Header="Failed Files" Grid.Row="3" Margin="5">
+                <DataGrid ItemsSource="{Binding Source={StaticResource FailedFilesView}}" 
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="JobId" Binding="{Binding JobId}" Width="220"/>
+                        <DataGridTextColumn Header="File" Binding="{Binding FileName}" Width="*"/>
+                        <DataGridTextColumn Header="Size (MB)" Binding="{Binding SizeMB}" Width="110"/>
+                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="120"/>
+                        <DataGridTextColumn Header="Progress" Binding="{Binding Progress}" Width="100"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </GroupBox>
+        </Grid>
+    </DockPanel>
+</Window>
