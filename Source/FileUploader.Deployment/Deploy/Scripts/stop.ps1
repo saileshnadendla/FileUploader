@@ -3,11 +3,9 @@ function Main {
     $myInstscript = (Get-Item $PSCommandPath ).Basename
     Write-Host "Stop Command Invoked from $myInstscript"
 
-    $processName = "FileUploader.Client"
-    $proc = Get-Process -Name $processName -ErrorAction SilentlyContinue
-    if ($proc) {
-        Stop-Process -Name $processName -Force
-    }
+    Get-CimInstance Win32_Process -Filter "Name = 'dotnet.exe'" |
+    Where-Object { $_.CommandLine -match "FileUploader.Client.dll" } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 
     $processName = "FileUploader.API"
     $proc = Get-Process -Name $processName -ErrorAction SilentlyContinue

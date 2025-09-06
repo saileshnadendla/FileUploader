@@ -20,7 +20,7 @@ function Main {
 
     Start-Process -FilePath "..\..\Worker\FileUploader.Worker.exe"
 
-    Start-Process -FilePath "..\..\FileUploader.Client.exe"
+    Start-Process powershell -ArgumentList "dotnet ..\..\FileUploader.Client.dll"
 
     Write-Host "All done!"
 }

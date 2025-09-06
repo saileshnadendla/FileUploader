@@ -23,6 +23,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileUploader.Worker_uTest",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileUploader.API_uTest", "Test\FileUploader.API_uTest\FileUploader.API_uTest.csproj", "{A6E0CA86-2389-47A9-91A9-EF1ADA7FC3DD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileUploader.Client_uTest", "Test\FileUploader.Client_uTest\FileUploader.Client_uTest.csproj", "{387B6E27-F2E0-46B7-A803-A7EFC47DF180}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -87,6 +89,14 @@ Global
 		{A6E0CA86-2389-47A9-91A9-EF1ADA7FC3DD}.Release|Any CPU.Build.0 = Release|Any CPU
 		{A6E0CA86-2389-47A9-91A9-EF1ADA7FC3DD}.Release|x64.ActiveCfg = Release|Any CPU
 		{A6E0CA86-2389-47A9-91A9-EF1ADA7FC3DD}.Release|x64.Build.0 = Release|Any CPU
+		{387B6E27-F2E0-46B7-A803-A7EFC47DF180}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{387B6E27-F2E0-46B7-A803-A7EFC47DF180}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{387B6E27-F2E0-46B7-A803-A7EFC47DF180}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{387B6E27-F2E0-46B7-A803-A7EFC47DF180}.Debug|x64.Build.0 = Debug|Any CPU
+		{387B6E27-F2E0-46B7-A803-A7EFC47DF180}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{387B6E27-F2E0-46B7-A803-A7EFC47DF180}.Release|Any CPU.Build.0 = Release|Any CPU
+		{387B6E27-F2E0-46B7-A803-A7EFC47DF180}.Release|x64.ActiveCfg = Release|Any CPU
+		{387B6E27-F2E0-46B7-A803-A7EFC47DF180}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -99,6 +109,7 @@ Global
 		{5B48F49C-8EF8-44F8-96C7-FA4F0B5366CF} = {981CFE98-5A24-4233-B10C-C544A0D52915}
 		{7D93EAA0-5328-4085-AEA1-F9DE983EB43B} = {E7D18F9A-0E3F-47E0-A360-F4BD773B92A2}
 		{A6E0CA86-2389-47A9-91A9-EF1ADA7FC3DD} = {E7D18F9A-0E3F-47E0-A360-F4BD773B92A2}
+		{387B6E27-F2E0-46B7-A803-A7EFC47DF180} = {E7D18F9A-0E3F-47E0-A360-F4BD773B92A2}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6DD6725E-C446-4F79-B0FB-69179D77A38E}
