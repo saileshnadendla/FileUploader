@@ -77,7 +77,13 @@ namespace FileUploader.Client.ViewModel
                     f.Status = "Queued";
                     f.Progress = 0;
 
-                    var job = new UploadJob(f.JobId, f.FilePath, f.FileName, f.SizeMB, 0);
+                    var job = new UploadJobBuilder()
+                                .WithJobId(f.JobId)
+                                .WithFilePath(f.FilePath)
+                                .WithFileName(f.FileName)
+                                .WithFileSize(f.SizeMB)
+                                .Build();
+
                     var payload = JsonSerializer.Serialize(job);
 
                     await _redisHelper.PushToRedis(payload);

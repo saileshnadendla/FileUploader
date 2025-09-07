@@ -6,9 +6,12 @@ using Moq;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Xml.Linq;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 
 namespace FileUploader.Client_uTest
@@ -33,7 +36,14 @@ namespace FileUploader.Client_uTest
         public void PreFillAvailableData_ViewModel_CompletedJobsArePreFilled()
         {
             //Arrange
-            var uploadUpdate = new UploadUpdate(Guid.NewGuid(), "temp.txt", UploadStatusKind.Completed, 100, "100");
+            var uploadUpdate = new UploadUpdateBuilder()
+                                .WithGuid(Guid.NewGuid())
+                                .WithFileName("temp.txt")
+                                .WithStatus(UploadStatusKind.Completed)
+                                .WithPercentage(100)
+                                .WithFileSize("100")
+                                .Build();
+
             _redisHelperMock.Setup(x => x.GetCompletedJobs()).ReturnsAsync(new List<string> { JsonSerializer.Serialize(uploadUpdate) });
 
             //Act
@@ -59,7 +69,14 @@ namespace FileUploader.Client_uTest
             };
             sut = new FileUploaderClientViewModel(_httpClientHelperMock.Object, _fileDialogHelperMock.Object, _redisHelperMock.Object);
             sut.Files.Add(fileItem);
-            var uploadUpdate = new UploadUpdate(guid, "temp.txt", UploadStatusKind.Completed, 100, "100");
+
+            var uploadUpdate = new UploadUpdateBuilder()
+                                .WithGuid(guid)
+                                .WithFileName("temp.txt")
+                                .WithStatus(UploadStatusKind.Completed)
+                                .WithPercentage(100)
+                                .WithFileSize("100")
+                                .Build();
 
             //Act
             _redisHelperMock.Raise(x => x.UpdateAvailable += null, this, uploadUpdate);

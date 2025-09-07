@@ -23,6 +23,49 @@ namespace FileUploader.Contracts
             FileSize = fileSize;
             Attempt = attempt;
         }
+    }
 
+    public class UploadJobBuilder
+    {
+        private string filepath;
+        private Guid jobId;
+        private string fileName;
+        private string fileSize;
+        private int attempt = 0;
+
+        public UploadJobBuilder WithFilePath(string path)
+        {
+            this.filepath = path;
+            return this;
+        }
+
+        public UploadJobBuilder WithJobId(Guid id)
+        {
+            this.jobId = id;
+            return this;
+        }
+
+        public UploadJobBuilder WithFileName(string name)
+        {
+            this.fileName = name;
+            return this;
+        }
+
+        public UploadJobBuilder WithFileSize(string size)
+        {
+            this.fileSize = size;
+            return this;
+        }
+
+        public UploadJobBuilder WithAttempt(int a)
+        {
+            this.attempt = a;
+            return this;
+        }
+
+        public UploadJob Build()
+        {
+            return new UploadJob(jobId, filepath, fileName, fileSize, attempt);
+        }
     }
 }

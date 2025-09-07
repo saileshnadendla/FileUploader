@@ -3,6 +3,7 @@ using FileUploader.Worker.Helpers;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
+using System.Drawing;
 using System.Net.Http.Headers;
 using System.Text.Json;
 
@@ -38,7 +39,7 @@ namespace FileUploader.Worker.Service
 
                     _logger.LogInformation("Picked job {JobId} for {FileName}", jobToProcess.JobId, jobToProcess.FileName);
 
-                    _redisHelper.PublishToRedis(new UploadUpdate(jobToProcess.JobId, jobToProcess.FileName, UploadStatusKind.InProgress, 0, jobToProcess.FileSize, null));
+                    _redisHelper.PublishToRedis(GetUpdateObject(jobToProcess.JobId, jobToProcess.FileName, UploadStatusKind.InProgress, 0, jobToProcess.FileSize, null));
                     var success = await ProcessJob(jobToProcess);
 
                     if (success)
@@ -68,14 +69,14 @@ namespace FileUploader.Worker.Service
             }
             catch (Exception ex)
             {
-                _redisHelper.PublishToRedis(new UploadUpdate(job.JobId, job.FileName, UploadStatusKind.Failed, 0, job.FileSize, ex.Message));
+                _redisHelper.PublishToRedis(GetUpdateObject(job.JobId, job.FileName, UploadStatusKind.Failed, 0, job.FileSize, ex.Message));
                 return false;
             }
         }
 
         private async Task HandleSuccess(UploadJob job)
         {
-            var uploadUpdate = new UploadUpdate(job.JobId, job.FileName, UploadStatusKind.Completed, 100, job.FileSize, null);
+            var uploadUpdate = GetUpdateObject(job.JobId, job.FileName, UploadStatusKind.Completed, 100, job.FileSize, null);
             _redisHelper.PublishToRedis(uploadUpdate);
 
             await _redisHelper.PushToRedis("upload:completedjobs", JsonSerializer.Serialize(uploadUpdate));
@@ -87,15 +88,29 @@ namespace FileUploader.Worker.Service
             {
                 job.Attempt++;
                 await _redisHelper.PushToRedis("upload:jobs", JsonSerializer.Serialize(job));
-                _redisHelper.PublishToRedis(new UploadUpdate(job.JobId, job.FileName, UploadStatusKind.Queued, 0, job.FileSize, $"Retry {job.Attempt}/3"));
+                _redisHelper.PublishToRedis(GetUpdateObject(job.JobId, job.FileName, UploadStatusKind.Queued, 0, job.FileSize, $"Retry {job.Attempt}/3"));
             }
             else
             {
-                var uploadUpdate = new UploadUpdate(job.JobId, job.FileName, UploadStatusKind.Failed, 0, job.FileSize, "Max retries exceeded");
+                var uploadUpdate = GetUpdateObject(job.JobId, job.FileName, UploadStatusKind.Failed, 0, job.FileSize, "Max retries exceeded");
                 await _redisHelper.PushToRedis("upload:jobs:dlq", JsonSerializer.Serialize(job));
                 await _redisHelper.PushToRedis("upload:completedjobs", JsonSerializer.Serialize(uploadUpdate));
                 _redisHelper.PublishToRedis(uploadUpdate);
             }
+        }
+
+        private UploadUpdate GetUpdateObject(Guid id, string name, UploadStatusKind status, int progress, string size, string error)
+        {
+            var uploadUpdate = new UploadUpdateBuilder()
+                                .WithGuid(id)
+                                .WithFileName(name)
+                                .WithStatus(status)
+                                .WithPercentage(progress)
+                                .WithFileSize(size)
+                                .WithError(error)
+                                .Build();
+
+            return uploadUpdate;
         }
     }
 }

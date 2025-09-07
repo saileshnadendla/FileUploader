@@ -30,7 +30,13 @@ namespace FileUploader.Worker_uTest
             UploadJob? completedJob = null;
             var progressJobs = new List<UploadUpdate>();
 
-            var uploadJob = new UploadJob(Guid.NewGuid(), Path.GetTempPath(), Path.GetTempFileName(), "100", 1);
+            var uploadJob = new UploadJobBuilder()
+                                .WithJobId(Guid.NewGuid())
+                                .WithFilePath(Path.GetTempPath())
+                                .WithFileName(Path.GetTempFileName())
+                                .WithFileSize("100")
+                                .WithAttempt(1)
+                                .Build();
 
             var jobQueue = new Queue<UploadJob?>();
             jobQueue.Enqueue(uploadJob);
@@ -75,7 +81,13 @@ namespace FileUploader.Worker_uTest
             UploadJob? failedJob = null;
             var progressJobs = new List<UploadUpdate>();
 
-            var uploadJob = new UploadJob(Guid.NewGuid(), Path.GetTempPath(), Path.GetTempFileName(), "100", 1);
+            var uploadJob = new UploadJobBuilder()
+                                .WithJobId(Guid.NewGuid())
+                                .WithFilePath(Path.GetTempPath())
+                                .WithFileName(Path.GetTempFileName())
+                                .WithFileSize("100")
+                                .WithAttempt(1)
+                                .Build();
 
             var jobQueue = new Queue<UploadJob?>();
             jobQueue.Enqueue(uploadJob);
@@ -132,7 +144,13 @@ namespace FileUploader.Worker_uTest
             UploadJob? failedJob = null;
             var progressJobs = new List<UploadUpdate>();
 
-            var uploadJob = new UploadJob(Guid.NewGuid(), Path.GetTempPath(), Path.GetTempFileName(), "100", 3);
+            var uploadJob = new UploadJobBuilder()
+                                .WithJobId(Guid.NewGuid())
+                                .WithFilePath(Path.GetTempPath())
+                                .WithFileName(Path.GetTempFileName())
+                                .WithFileSize("100")
+                                .WithAttempt(3)
+                                .Build();
 
             var jobQueue = new Queue<UploadJob?>();
             jobQueue.Enqueue(uploadJob);
@@ -185,7 +203,13 @@ namespace FileUploader.Worker_uTest
             UploadJob? failedJob = null;
             var progressJobs = new List<UploadUpdate>();
 
-            var uploadJob = new UploadJob(Guid.NewGuid(), Path.GetTempPath(), Path.GetTempFileName(), "100", 1);
+            var uploadJob = new UploadJobBuilder()
+                                .WithJobId(Guid.NewGuid())
+                                .WithFilePath(Path.GetTempPath())
+                                .WithFileName(Path.GetTempFileName())
+                                .WithFileSize("100")
+                                .WithAttempt(1)
+                                .Build();
 
             var jobQueue = new Queue<UploadJob?>();
             jobQueue.Enqueue(uploadJob);
