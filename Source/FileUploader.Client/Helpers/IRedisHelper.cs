@@ -12,7 +12,8 @@ namespace FileUploader.Client.Helpers
         event EventHandler<UploadUpdate> UpdateAvailable;
 
         Task<List<string>> GetCompletedJobs();
-        Task PushToRedis(string payload);
+        Task<bool> PushToRedis(string payload);
         Task SubscribeToJobStatus();
+        int GetOfflineQueueCount();
     }
 }

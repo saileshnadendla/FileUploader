@@ -33,13 +33,18 @@ namespace FileUploader.Worker.Service
                     var jobToProcess = await _redisHelper.GetUploadJob();
                     if (jobToProcess == null)
                     {
-                        await Task.Delay(500);
+                        await Task.Delay(500, stoppingToken);
                         continue;
                     }
 
                     _logger.LogInformation("Picked job {JobId} for {FileName}", jobToProcess.JobId, jobToProcess.FileName);
 
-                    _redisHelper.PublishToRedis(GetUpdateObject(jobToProcess.JobId, jobToProcess.FileName, UploadStatusKind.InProgress, 0, jobToProcess.FileSize, null));
+                    var updatePublished = await _redisHelper.PublishToRedis(GetUpdateObject(jobToProcess.JobId, jobToProcess.FileName, UploadStatusKind.InProgress, 0, jobToProcess.FileSize, null));
+                    if (!updatePublished)
+                    {
+                        _logger.LogWarning("Failed to publish InProgress status for job {JobId}", jobToProcess.JobId);
+                    }
+
                     var success = await ProcessJob(jobToProcess);
 
                     if (success)
@@ -64,12 +69,18 @@ namespace FileUploader.Worker.Service
             try
             {
                 var result = await _httpClientHelper.HttpClientPostAsync(job);
-
                 return result;
             }
             catch (Exception ex)
             {
-                _redisHelper.PublishToRedis(GetUpdateObject(job.JobId, job.FileName, UploadStatusKind.Failed, 0, job.FileSize, ex.Message));
+                _logger.LogError(ex, "Failed to process job {JobId}", job.JobId);
+
+                var updatePublished = await _redisHelper.PublishToRedis(GetUpdateObject(job.JobId, job.FileName, UploadStatusKind.Failed, 0, job.FileSize, ex.Message));
+                if (!updatePublished)
+                {
+                    _logger.LogWarning("Failed to publish failure status for job {JobId}", job.JobId);
+                }
+
                 return false;
             }
         }
@@ -77,9 +88,18 @@ namespace FileUploader.Worker.Service
         private async Task HandleSuccess(UploadJob job)
         {
             var uploadUpdate = GetUpdateObject(job.JobId, job.FileName, UploadStatusKind.Completed, 100, job.FileSize, null);
-            _redisHelper.PublishToRedis(uploadUpdate);
 
-            await _redisHelper.PushToRedis("upload:completedjobs", JsonSerializer.Serialize(uploadUpdate));
+            var updatePublished = await _redisHelper.PublishToRedis(uploadUpdate);
+            if (!updatePublished)
+            {
+                _logger.LogWarning("Failed to publish completion status for job {JobId}", job.JobId);
+            }
+
+            var pushed = await _redisHelper.PushToRedis("upload:completedjobs", JsonSerializer.Serialize(uploadUpdate));
+            if (!pushed)
+            {
+                _logger.LogError("Failed to add job {JobId} to completed jobs list", job.JobId);
+            }
         }
 
         private async Task HandleFailure(UploadJob job)
@@ -87,16 +107,52 @@ namespace FileUploader.Worker.Service
             if (job.Attempt < 3)
             {
                 job.Attempt++;
-                await _redisHelper.PushToRedis("upload:jobs", JsonSerializer.Serialize(job));
-                _redisHelper.PublishToRedis(GetUpdateObject(job.JobId, job.FileName, UploadStatusKind.Queued, 0, job.FileSize, $"Retry {job.Attempt}/3"));
+                var requeued = await _redisHelper.PushToRedis("upload:jobs", JsonSerializer.Serialize(job));
+
+                if (requeued)
+                {
+                    _logger.LogInformation("Requeued job {JobId} for retry {Attempt}/3", job.JobId, job.Attempt);
+                    var updatePublished = await _redisHelper.PublishToRedis(GetUpdateObject(job.JobId, job.FileName, UploadStatusKind.Queued, 0, job.FileSize, $"Retry {job.Attempt}/3"));
+                    if (!updatePublished)
+                    {
+                        _logger.LogWarning("Failed to publish retry status for job {JobId}", job.JobId);
+                    }
+                }
+                else
+                {
+                    _logger.LogError("Failed to requeue job {JobId} for retry", job.JobId);
+                    await HandleFinalFailure(job);
+                }
             }
             else
             {
-                var uploadUpdate = GetUpdateObject(job.JobId, job.FileName, UploadStatusKind.Failed, 0, job.FileSize, "Max retries exceeded");
-                await _redisHelper.PushToRedis("upload:jobs:dlq", JsonSerializer.Serialize(job));
-                await _redisHelper.PushToRedis("upload:completedjobs", JsonSerializer.Serialize(uploadUpdate));
-                _redisHelper.PublishToRedis(uploadUpdate);
+                await HandleFinalFailure(job);
             }
+        }
+
+        private async Task HandleFinalFailure(UploadJob job)
+        {
+            var uploadUpdate = GetUpdateObject(job.JobId, job.FileName, UploadStatusKind.Failed, 0, job.FileSize, "Max retries exceeded");
+
+            var movedToDLQ = await _redisHelper.PushToRedis("upload:jobs:dlq", JsonSerializer.Serialize(job));
+            if (!movedToDLQ)
+            {
+                _logger.LogError("Failed to move job {JobId} to dead letter queue", job.JobId);
+            }
+
+            var addedToCompleted = await _redisHelper.PushToRedis("upload:completedjobs", JsonSerializer.Serialize(uploadUpdate));
+            if (!addedToCompleted)
+            {
+                _logger.LogError("Failed to add failed job {JobId} to completed jobs list", job.JobId);
+            }
+
+            var updatePublished = await _redisHelper.PublishToRedis(uploadUpdate);
+            if (!updatePublished)
+            {
+                _logger.LogWarning("Failed to publish final failure status for job {JobId}", job.JobId);
+            }
+
+            _logger.LogWarning("Job {JobId} failed after {Attempt} attempts", job.JobId, job.Attempt);
         }
 
         private UploadUpdate GetUpdateObject(Guid id, string name, UploadStatusKind status, int progress, string size, string error)

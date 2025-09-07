@@ -48,6 +48,7 @@ namespace FileUploader.Client_uTest
 
             //Act
             sut = new FileUploaderClientViewModel(_httpClientHelperMock.Object, _fileDialogHelperMock.Object, _redisHelperMock.Object);
+            Task.Delay(100);
 
             //Assert
             _redisHelperMock.Verify(x => x.SubscribeToJobStatus(), Times.Once);
@@ -122,7 +123,7 @@ namespace FileUploader.Client_uTest
             { 
                 FileName = "file1.txt",
                 JobId = job1Id,
-                Status = UploadStatusKind.Queued.ToString(),
+                Status = "Ready",
                 IsDone = false
             });
             files.Add(new FileItem()
@@ -136,7 +137,7 @@ namespace FileUploader.Client_uTest
             {
                 FileName = "file3.txt",
                 JobId = job3Id,
-                Status = UploadStatusKind.Queued.ToString(),
+                Status = "Ready",
                 IsDone = false
             });
             sut = new FileUploaderClientViewModel(_httpClientHelperMock.Object, _fileDialogHelperMock.Object, _redisHelperMock.Object);

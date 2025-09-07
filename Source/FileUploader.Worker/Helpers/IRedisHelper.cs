@@ -11,8 +11,8 @@ namespace FileUploader.Worker.Helpers
     {
         Task<UploadJob> GetUploadJob();
 
-        Task PushToRedis(string key, string job);
+        Task<bool> PushToRedis(string key, string job);
 
-        void PublishToRedis(UploadUpdate update);
+        Task<bool> PublishToRedis(UploadUpdate update);
     }
 }

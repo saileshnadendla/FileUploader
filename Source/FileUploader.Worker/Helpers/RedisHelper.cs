@@ -11,36 +11,178 @@ namespace FileUploader.Worker.Helpers
 {
     public class RedisHelper : IRedisHelper
     {
-        private readonly IConnectionMultiplexer _redis;
+        private IConnectionMultiplexer _redis;
+        private readonly string _connectionString;
+        private readonly object _lockObject = new object();
 
         public RedisHelper(IConnectionMultiplexer redis)
         {
-            _redis = redis;
+            _redis = redis ?? throw new ArgumentNullException(nameof(redis));
+            _connectionString = "localhost:6379";
+        }
+
+        private bool EnsureConnectionAsync()
+        {
+            try
+            {
+                if (_redis != null && _redis.IsConnected)
+                    return true;
+
+                lock (_lockObject)
+                {
+                    if (_redis == null || !_redis.IsConnected)
+                    {
+                        Console.WriteLine("Worker Redis connection lost, attempting to reconnect...");
+                        _redis?.Dispose();
+
+                        var configOptions = ConfigurationOptions.Parse(_connectionString);
+                        configOptions.AbortOnConnectFail = false;
+                        configOptions.ConnectTimeout = 5000;
+                        configOptions.SyncTimeout = 5000;
+                        configOptions.ConnectRetry = 3;
+                        configOptions.ReconnectRetryPolicy = new ExponentialRetry(1000, 10000);
+
+                        _redis = ConnectionMultiplexer.Connect(configOptions);
+
+                        if (_redis.IsConnected)
+                        {
+                            Console.WriteLine("Worker Redis connection restored successfully");
+                        }
+                        else
+                        {
+                            Console.WriteLine("Worker Redis connection attempt completed but not connected yet (will retry in background)");
+                        }
+                    }
+                }
+
+                return _redis.IsConnected;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to ensure Worker Redis connection: {ex.Message}");
+                return false;
+            }
         }
 
         public async Task<UploadJob> GetUploadJob()
         {
-            var db = _redis.GetDatabase();
-            var job = await db.ListRightPopAsync("upload:jobs");
+            const int maxRetries = 3;
 
-            if (job.IsNullOrEmpty)
+            if (_redis?.IsConnected == true)
             {
+                Console.WriteLine("Worker Redis is connected, checking for jobs...");
+            }
+            else
+            {
+                Console.WriteLine("Worker Redis is not connected, skipping job check");
                 return null;
             }
 
-            return JsonSerializer.Deserialize<UploadJob>(job.ToString());
+            for (int attempt = 0; attempt < maxRetries; attempt++)
+            {
+                try
+                {
+                    if (!EnsureConnectionAsync())
+                    {
+                        await Task.Delay(1000 * (attempt + 1));
+                        continue;
+                    }
+
+                    var db = _redis.GetDatabase();
+                    var job = await db.ListRightPopAsync("upload:jobs");
+
+                    if (job.IsNullOrEmpty)
+                    {
+                        if (attempt == 0) Console.WriteLine("Worker: No jobs in queue");
+                        return null;
+                    }
+
+                    var uploadJob = JsonSerializer.Deserialize<UploadJob>(job.ToString());
+                    Console.WriteLine($"Worker picked up job: {uploadJob?.JobId} - {uploadJob?.FileName}");
+                    return uploadJob;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Worker attempt {attempt + 1} failed to get upload job: {ex.Message}");
+                    if (attempt < maxRetries - 1)
+                    {
+                        await Task.Delay(1000 * (attempt + 1));
+                    }
+                }
+            }
+
+            return null;
         }
 
-        public async Task PushToRedis(string key, string job)
+        public async Task<bool> PushToRedis(string key, string job)
         {
-            var db = _redis.GetDatabase();
-            await db.ListLeftPushAsync(key, job);
+            const int maxRetries = 3;
+
+            for (int attempt = 0; attempt < maxRetries; attempt++)
+            {
+                try
+                {
+                    if (!EnsureConnectionAsync())
+                    {
+                        await Task.Delay(1000 * (attempt + 1));
+                        continue;
+                    }
+
+                    var db = _redis.GetDatabase();
+                    await db.ListLeftPushAsync(key, job);
+                    Console.WriteLine($"Worker successfully pushed to {key}");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Worker attempt {attempt + 1} failed to push to Redis key {key}: {ex.Message}");
+                    if (attempt < maxRetries - 1)
+                    {
+                        await Task.Delay(1000 * (attempt + 1));
+                    }
+                }
+            }
+
+            return false;
         }
 
-        public void PublishToRedis(UploadUpdate update)
+        public async Task<bool> PublishToRedis(UploadUpdate update)
         {
-            var sub = _redis.GetSubscriber();
-            sub.PublishAsync("upload:updates", JsonSerializer.Serialize(update));
+            const int maxRetries = 3;
+
+            for (int attempt = 0; attempt < maxRetries; attempt++)
+            {
+                try
+                {
+                    if (!EnsureConnectionAsync())
+                    {
+                        await Task.Delay(1000 * (attempt + 1));
+                        continue;
+                    }
+
+                    var sub = _redis.GetSubscriber();
+                    var message = JsonSerializer.Serialize(update);
+                    var result = await sub.PublishAsync("upload:updates", message);
+
+                    Console.WriteLine($"Worker published update for job {update.JobId} - Status: {update.Status} - Subscribers: {result}");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Worker attempt {attempt + 1} failed to publish to Redis: {ex.Message}");
+                    if (attempt < maxRetries - 1)
+                    {
+                        await Task.Delay(1000 * (attempt + 1));
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        public void Dispose()
+        {
+            _redis?.Dispose();
         }
     }
 }

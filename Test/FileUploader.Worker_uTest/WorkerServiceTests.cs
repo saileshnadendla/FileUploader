@@ -105,7 +105,7 @@ namespace FileUploader.Worker_uTest
                         .Callback((string key, string uploadjob) =>
                         {
                             failedJob = JsonSerializer.Deserialize<UploadJob>(uploadjob);
-                        });
+                        }).ReturnsAsync(true);
 
             _redisHelper.Setup(x => x.PushToRedis("upload:completedjobs", It.IsAny<string>()))
                         .Callback((string key, string uploadjob) =>
@@ -227,7 +227,7 @@ namespace FileUploader.Worker_uTest
                         .Callback((string key, string uploadjob) =>
                         {
                             failedJob = JsonSerializer.Deserialize<UploadJob>(uploadjob);
-                        });
+                        }).ReturnsAsync(true);
 
             _redisHelper.Setup(x => x.PushToRedis("upload:completedjobs", It.IsAny<string>()))
                         .Callback((string key, string uploadjob) =>

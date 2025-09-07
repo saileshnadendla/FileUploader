@@ -17,7 +17,7 @@ namespace FileUploader.Client.ViewModel
         public ObservableCollection<FileItem> Files { get; } = new ObservableCollection<FileItem>();
 
         public DelegateCommand OnSelectFiles { get; private set; }
-        public DelegateCommand OnUploadFiles { get; private set; } 
+        public DelegateCommand OnUploadFiles { get; private set; }
         public DelegateCommand<FileItem> DownloadCommand { get; private set; }
 
         private readonly IHttpClientHelper _httpClientHelper;
@@ -35,18 +35,16 @@ namespace FileUploader.Client.ViewModel
             _redisHelper = redisHelper;
 
             OnSelectFiles = new DelegateCommand(OnSelectFilesImpln, () => true);
-            OnUploadFiles = new DelegateCommand(OnUploadFilesImpln, () => true);
-            DownloadCommand = new DelegateCommand<FileItem>(OnDownloadFile);
+            OnUploadFiles = new DelegateCommand(() => _ = OnUploadFilesImplnAsync(), () => true);
+            DownloadCommand = new DelegateCommand<FileItem>(file => _ = OnDownloadFileAsync(file));
 
-            _ = PreFillAvailableData();
+            _ =  PreFillAvailableData();
             _ = SubscribeToJobStatus();
-
-            Files = new ObservableCollection<FileItem>(Files.Where(x => x.JobId != Guid.Empty && !string.IsNullOrEmpty(x.FileName)).ToList());
         }
 
         private void OnSelectFilesImpln()
         {
-            var selectedFiles = _fileDialogService.SelectFiles(); 
+            var selectedFiles = _fileDialogService.SelectFiles();
             if (selectedFiles == null || selectedFiles.Count() == 0)
             {
                 return;
@@ -68,9 +66,11 @@ namespace FileUploader.Client.ViewModel
             }
         }
 
-        private async void OnUploadFilesImpln()
+        private async Task OnUploadFilesImplnAsync()
         {
-            foreach (var f in Files.Where(x => !x.IsDone))
+            var filesToUpload = Files.Where(x => !x.IsDone && (x.Status == "Ready")).ToList();
+
+            foreach (var f in filesToUpload)
             {
                 try
                 {
@@ -86,17 +86,35 @@ namespace FileUploader.Client.ViewModel
 
                     var payload = JsonSerializer.Serialize(job);
 
-                    await _redisHelper.PushToRedis(payload);
+                    bool success = await _redisHelper.PushToRedis(payload);
+
+                    if (success)
+                    {
+                        f.Status = "Queued";
+                    }
+                    else
+                    {
+                        f.Status = "Failed to enqueue";
+                    }
                 }
                 catch (Exception ex)
                 {
                     f.Status = "Failed to enqueue";
-                    Console.WriteLine(ex);
+                    Console.WriteLine($"Error enqueueing file {f.FileName}: {ex}");
                 }
+            }
+
+            var offlineCount = _redisHelper.GetOfflineQueueCount();
+            if (offlineCount > 0)
+            {
+                await Application.Current.Dispatcher.BeginInvoke(() =>
+                {
+                    Console.WriteLine($"Info: {offlineCount} jobs queued offline and will be processed when Redis is available");
+                });
             }
         }
 
-        private async void OnDownloadFile(FileItem file)
+        private async Task OnDownloadFileAsync(FileItem file)
         {
             try
             {
@@ -104,56 +122,79 @@ namespace FileUploader.Client.ViewModel
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    MessageBox.Show("Failed to download file: " + response.ReasonPhrase);
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        MessageBox.Show("Failed to download file: " + response.ReasonPhrase);
+                    });
                     return;
                 }
 
                 var fileBytes = await response.Content.ReadAsByteArrayAsync();
                 _fileDialogService.SaveSelectedFile(file.FileName, fileBytes);
-                
+
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error: " + ex.Message);
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    MessageBox.Show("Error: " + ex.Message);
+                });
             }
         }
 
-        
         private async Task PreFillAvailableData()
         {
-            var completedJobs = await _redisHelper.GetCompletedJobs();
-            if (completedJobs != null && completedJobs.Any())
+            try
             {
-                foreach (var item in completedJobs)
+                var completedJobs = await _redisHelper.GetCompletedJobs();
+                if (completedJobs != null && completedJobs.Any())
                 {
-                    var itemStr = (string)item;
-                    var uploadUpdate = JsonSerializer.Deserialize<UploadUpdate>(itemStr);
-
-                    var file = new FileItem
+                    foreach (var item in completedJobs)
                     {
-                        JobId = uploadUpdate.JobId,
-                        FileName = uploadUpdate.FileName,
-                        SizeMB = uploadUpdate.FileSize,
-                        IsDone = true,
-                        Status = uploadUpdate.Status.ToString(),
-                        Progress = uploadUpdate.ProgressPercent
-                    };
+                        var itemStr = (string)item;
+                        var uploadUpdate = JsonSerializer.Deserialize<UploadUpdate>(itemStr);
 
-                    Files.Add(file);
+                        if (uploadUpdate?.JobId != Guid.Empty && !string.IsNullOrEmpty(uploadUpdate.FileName))
+                        {
+                            var file = new FileItem
+                            {
+                                JobId = uploadUpdate.JobId,
+                                FileName = uploadUpdate.FileName,
+                                SizeMB = uploadUpdate.FileSize,
+                                IsDone = true,
+                                Status = uploadUpdate.Status.ToString(),
+                                Progress = uploadUpdate.ProgressPercent
+                            };
+
+                            Files.Add(file);
+                        }
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error pre-filling data: {ex.Message}");
             }
         }
 
         private async Task SubscribeToJobStatus()
-        { 
-            _redisHelper.UpdateAvailable += OnRedisUpdateAvailable;
-            await _redisHelper.SubscribeToJobStatus();
+        {
+            try
+            {
+                await _redisHelper.SubscribeToJobStatus();
+                _redisHelper.UpdateAvailable += OnRedisUpdateAvailable;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error subscribing to job status: {ex.Message}");
+            }
         }
 
         private void OnRedisUpdateAvailable(object sender, UploadUpdate upd)
         {
             var item = Files.FirstOrDefault(f => f.JobId == upd.JobId);
             if (item == null) return;
+
             item.Status = upd.Status.ToString();
             item.Progress = upd.ProgressPercent;
             if (upd.Status == UploadStatusKind.Completed || upd.Status == UploadStatusKind.Failed)

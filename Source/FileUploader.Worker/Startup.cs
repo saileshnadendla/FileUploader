@@ -18,10 +18,24 @@ namespace FileUploader.Worker
 
             var config = builder.Configuration;
             var redisHost = Environment.GetEnvironmentVariable("REDIS_HOST") ?? "localhost:6379";
-            var mux = await ConnectionMultiplexer.ConnectAsync(redisHost);
+
+            var configOptions = ConfigurationOptions.Parse(redisHost);
+            configOptions.AbortOnConnectFail = false;
+            configOptions.ConnectTimeout = 5000;
+            configOptions.SyncTimeout = 5000;
+            configOptions.ConnectRetry = 3;
+            configOptions.ReconnectRetryPolicy = new ExponentialRetry(1000, 10000);
+
+            var mux = await ConnectionMultiplexer.ConnectAsync(configOptions);
+
             builder.Services.AddSingleton<IConnectionMultiplexer>(mux);
             builder.Services.AddSingleton<IHttpClientHelper>(new HttpClientHelper());
-            builder.Services.AddSingleton<IRedisHelper>(new RedisHelper(mux));
+
+            builder.Services.AddSingleton<IRedisHelper>(serviceProvider =>
+            {
+                var connectionMultiplexer = serviceProvider.GetRequiredService<IConnectionMultiplexer>();
+                return new RedisHelper(connectionMultiplexer);
+            });
 
             builder.Services.AddHostedService<WorkerService>();
 
