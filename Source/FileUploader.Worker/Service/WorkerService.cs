@@ -46,7 +46,6 @@ namespace FileUploader.Worker.Service
                     }
 
                     var success = await ProcessJob(jobToProcess);
-
                     if (success)
                     {
                         await HandleSuccess(jobToProcess);

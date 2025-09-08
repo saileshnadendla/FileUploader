@@ -21,69 +21,16 @@ namespace FileUploader.Worker.Helpers
             _connectionString = "localhost:6379";
         }
 
-        private bool EnsureConnectionAsync()
-        {
-            try
-            {
-                if (_redis != null && _redis.IsConnected)
-                    return true;
-
-                lock (_lockObject)
-                {
-                    if (_redis == null || !_redis.IsConnected)
-                    {
-                        Console.WriteLine("Worker Redis connection lost, attempting to reconnect...");
-                        _redis?.Dispose();
-
-                        var configOptions = ConfigurationOptions.Parse(_connectionString);
-                        configOptions.AbortOnConnectFail = false;
-                        configOptions.ConnectTimeout = 5000;
-                        configOptions.SyncTimeout = 5000;
-                        configOptions.ConnectRetry = 3;
-                        configOptions.ReconnectRetryPolicy = new ExponentialRetry(1000, 10000);
-
-                        _redis = ConnectionMultiplexer.Connect(configOptions);
-
-                        if (_redis.IsConnected)
-                        {
-                            Console.WriteLine("Worker Redis connection restored successfully");
-                        }
-                        else
-                        {
-                            Console.WriteLine("Worker Redis connection attempt completed but not connected yet (will retry in background)");
-                        }
-                    }
-                }
-
-                return _redis.IsConnected;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to ensure Worker Redis connection: {ex.Message}");
-                return false;
-            }
-        }
-
         public async Task<UploadJob> GetUploadJob()
         {
             const int maxRetries = 3;
-
-            if (_redis?.IsConnected == true)
-            {
-                Console.WriteLine("Worker Redis is connected, checking for jobs...");
-            }
-            else
-            {
-                Console.WriteLine("Worker Redis is not connected, skipping job check");
-                return null;
-            }
-
             for (int attempt = 0; attempt < maxRetries; attempt++)
             {
                 try
                 {
                     if (!EnsureConnectionAsync())
                     {
+                        Console.WriteLine("Worker Redis is not connected, skipping job check");
                         await Task.Delay(1000 * (attempt + 1));
                         continue;
                     }
@@ -93,7 +40,8 @@ namespace FileUploader.Worker.Helpers
 
                     if (job.IsNullOrEmpty)
                     {
-                        if (attempt == 0) Console.WriteLine("Worker: No jobs in queue");
+                        if (attempt == 0)
+                            Console.WriteLine("Worker: No jobs in queue");
                         return null;
                     }
 
@@ -183,6 +131,49 @@ namespace FileUploader.Worker.Helpers
         public void Dispose()
         {
             _redis?.Dispose();
+        }
+
+        private bool EnsureConnectionAsync()
+        {
+            try
+            {
+                if (_redis != null && _redis.IsConnected)
+                    return true;
+
+                lock (_lockObject)
+                {
+                    if (_redis == null || !_redis.IsConnected)
+                    {
+                        Console.WriteLine("Worker Redis connection lost, attempting to reconnect...");
+                        _redis?.Dispose();
+
+                        var configOptions = ConfigurationOptions.Parse(_connectionString);
+                        configOptions.AbortOnConnectFail = false;
+                        configOptions.ConnectTimeout = 5000;
+                        configOptions.SyncTimeout = 5000;
+                        configOptions.ConnectRetry = 3;
+                        configOptions.ReconnectRetryPolicy = new ExponentialRetry(1000, 10000);
+
+                        _redis = ConnectionMultiplexer.Connect(configOptions);
+
+                        if (_redis.IsConnected)
+                        {
+                            Console.WriteLine("Worker Redis connection restored successfully");
+                        }
+                        else
+                        {
+                            Console.WriteLine("Worker Redis connection attempt completed but not connected yet (will retry in background)");
+                        }
+                    }
+                }
+
+                return _redis.IsConnected;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to ensure Worker Redis connection: {ex.Message}");
+                return false;
+            }
         }
     }
 }

@@ -14,11 +14,13 @@ function Main {
     } while ($status -ne "Running")
 
     
-    Start-Process powershell -ArgumentList "kubectl port-forward deployment/fileuploader-redis 6379:6379 -n file-uploader"
+    Start-Process powershell -ArgumentList "kubectl port-forward deployment/fileuploader-redis 6379:6379 -n file-uploader" -WindowStyle Hidden 
 
-    Start-Process -FilePath "..\..\APIServer\FileUploader.API.exe"
+    $logFile = "..\..\Logs\FileUploader_API.log"
+    Start-Process -FilePath "..\..\APIServer\FileUploader.API.exe" -WindowStyle Hidden -RedirectStandardOutput $logFile  
 
-    Start-Process -FilePath "..\..\Worker\FileUploader.Worker.exe"
+    $logFile = "..\..\Logs\FileUploader_Worker.log"
+    Start-Process -FilePath "..\..\Worker\FileUploader.Worker.exe" -WindowStyle Hidden -RedirectStandardOutput $logFile
 
     Start-Process powershell -ArgumentList "dotnet ..\..\FileUploader.Client.dll"
 

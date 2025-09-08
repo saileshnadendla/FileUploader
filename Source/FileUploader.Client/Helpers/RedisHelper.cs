@@ -37,6 +37,149 @@ namespace FileUploader.Client.Helpers
             _ = Task.Run(async () => await EnsureConnectionAsync());
         }
 
+        public async Task<List<string>> GetCompletedJobs()
+        {
+            try
+            {
+                if (!await EnsureConnectionAsync())
+                {
+                    return new List<string>();
+                }
+
+                var db = _redis.GetDatabase();
+                var items = await db.ListRangeAsync("upload:completedjobs", 0, -1)
+                    .WaitAsync(TimeSpan.FromSeconds(5));
+
+                return items.Select(x => (string)x).ToList();
+            }
+            catch (TimeoutException)
+            {
+                Console.WriteLine("Redis operation timed out while getting completed jobs");
+                return new List<string>();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting completed jobs: {ex.Message}");
+                return new List<string>();
+            }
+        }
+
+        public async Task<bool> PushToRedis(string payload)
+        {
+            try
+            {
+                if (!await EnsureConnectionAsync())
+                {
+                    _offlineQueue.Enqueue(payload);
+                    Console.WriteLine($"Redis unavailable, job queued offline. Queue size: {_offlineQueue.Count}");
+                    return true;
+                }
+
+                var db = _redis.GetDatabase();
+                await db.ListLeftPushAsync("upload:jobs", payload)
+                    .WaitAsync(TimeSpan.FromSeconds(5));
+
+                return true;
+            }
+            catch (TimeoutException)
+            {
+                _offlineQueue.Enqueue(payload);
+                Console.WriteLine($"Redis timeout, job queued offline. Queue size: {_offlineQueue.Count}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _offlineQueue.Enqueue(payload);
+                Console.WriteLine($"Redis error, job queued offline: {ex.Message}. Queue size: {_offlineQueue.Count}");
+                return true;
+            }
+        }
+
+        public async Task SubscribeToJobStatus()
+        {
+            try
+            {
+                if (_disposed || _redis?.IsConnected != true || _isSubscribed)
+                    return;
+
+                _sub = _redis.GetSubscriber();
+                await _sub.SubscribeAsync("upload:updates", (_, value) =>
+                {
+                    try
+                    {
+                        var upd = JsonSerializer.Deserialize<UploadUpdate>(value);
+                        if (upd is null) return;
+
+                        if (Application.Current != null)
+                        {
+                            Application.Current.Dispatcher.BeginInvoke(() =>
+                            {
+                                UpdateAvailable?.Invoke(this, upd);
+                            });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error processing update: {ex.Message}");
+                    }
+                });
+
+                _isSubscribed = true;
+                Console.WriteLine("Successfully subscribed to upload:updates channel");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to subscribe to job status: {ex.Message}");
+                _isSubscribed = false;
+            }
+        }
+
+        public int GetOfflineQueueCount()
+        {
+            return _offlineQueue.Count;
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                _disposed = true;
+
+                _retryTimer?.Dispose();
+                _subscriptionCheckTimer?.Dispose();
+
+                if (_sub != null)
+                {
+                    try
+                    {
+                        _sub.Unsubscribe("upload:updates");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error unsubscribing: {ex.Message}");
+                    }
+                }
+
+                if (_redis != null)
+                {
+                    try
+                    {
+                        _redis.ConnectionRestored -= OnConnectionRestored;
+                        _redis.ConnectionFailed -= OnConnectionFailed;
+                        _redis.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error disposing Redis connection: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error disposing RedisHelper: {ex.Message}");
+            }
+        }
+
         private async Task<bool> EnsureConnectionAsync()
         {
             try
@@ -133,7 +276,6 @@ namespace FileUploader.Client.Helpers
 
         private void OnConnectionRestored(object sender, ConnectionFailedEventArgs e)
         {
-            Console.WriteLine($"Redis connection restored: {e.EndPoint}");
             _isSubscribed = false;
 
             _ = Task.Run(async () =>
@@ -153,67 +295,7 @@ namespace FileUploader.Client.Helpers
 
         private void OnConnectionFailed(object sender, ConnectionFailedEventArgs e)
         {
-            Console.WriteLine($"Redis connection failed: {e.EndPoint} - {e.Exception?.Message}");
             _isSubscribed = false;
-        }
-
-        public async Task<List<string>> GetCompletedJobs()
-        {
-            try
-            {
-                if (!await EnsureConnectionAsync())
-                {
-                    return new List<string>();
-                }
-
-                var db = _redis.GetDatabase();
-                var items = await db.ListRangeAsync("upload:completedjobs", 0, -1)
-                    .WaitAsync(TimeSpan.FromSeconds(5));
-
-                return items.Select(x => (string)x).ToList();
-            }
-            catch (TimeoutException)
-            {
-                Console.WriteLine("Redis operation timed out while getting completed jobs");
-                return new List<string>();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error getting completed jobs: {ex.Message}");
-                return new List<string>();
-            }
-        }
-
-        public async Task<bool> PushToRedis(string payload)
-        {
-            try
-            {
-                if (!await EnsureConnectionAsync())
-                {
-                    _offlineQueue.Enqueue(payload);
-                    Console.WriteLine($"Redis unavailable, job queued offline. Queue size: {_offlineQueue.Count}");
-                    return true;
-                }
-
-                var db = _redis.GetDatabase();
-                await db.ListLeftPushAsync("upload:jobs", payload)
-                    .WaitAsync(TimeSpan.FromSeconds(5));
-
-                Console.WriteLine("Job successfully pushed to Redis");
-                return true;
-            }
-            catch (TimeoutException)
-            {
-                _offlineQueue.Enqueue(payload);
-                Console.WriteLine($"Redis timeout, job queued offline. Queue size: {_offlineQueue.Count}");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _offlineQueue.Enqueue(payload);
-                Console.WriteLine($"Redis error, job queued offline: {ex.Message}. Queue size: {_offlineQueue.Count}");
-                return true;
-            }
         }
 
         private void ProcessOfflineQueue(object state)
@@ -237,7 +319,6 @@ namespace FileUploader.Client.Helpers
                 }
 
                 var db = _redis.GetDatabase();
-                var processedCount = 0;
                 var failedCount = 0;
                 var itemsToProcess = Math.Min(_offlineQueue.Count, 10);
 
@@ -247,8 +328,6 @@ namespace FileUploader.Client.Helpers
                     {
                         await db.ListLeftPushAsync("upload:jobs", payload)
                             .WaitAsync(TimeSpan.FromSeconds(5));
-                        processedCount++;
-                        Console.WriteLine($"Successfully pushed offline job to Redis (processed {processedCount})");
                     }
                     catch (Exception ex)
                     {
@@ -267,16 +346,6 @@ namespace FileUploader.Client.Helpers
                         break;
                     }
                 }
-
-                if (processedCount > 0)
-                {
-                    Console.WriteLine($"Successfully processed {processedCount} offline jobs. Remaining in queue: {_offlineQueue.Count}");
-                }
-
-                if (failedCount > 0)
-                {
-                    Console.WriteLine($"Failed to process {failedCount} offline jobs. Will retry later.");
-                }
             }
             catch (Exception ex)
             {
@@ -285,46 +354,6 @@ namespace FileUploader.Client.Helpers
             finally
             {
                 _isProcessingOfflineQueue = false;
-            }
-        }
-
-        public async Task SubscribeToJobStatus()
-        {
-            try
-            {
-                if (_disposed || _redis?.IsConnected != true || _isSubscribed)
-                    return;
-
-                _sub = _redis.GetSubscriber();
-                await _sub.SubscribeAsync("upload:updates", (_, value) =>
-                {
-                    try
-                    {
-                        Console.WriteLine($"Received Redis update: {value}");
-                        var upd = JsonSerializer.Deserialize<UploadUpdate>(value);
-                        if (upd is null) return;
-
-                        if (Application.Current != null)
-                        {
-                            Application.Current.Dispatcher.BeginInvoke(() =>
-                            {
-                                UpdateAvailable?.Invoke(this, upd);
-                            });
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error processing update: {ex.Message}");
-                    }
-                });
-
-                _isSubscribed = true;
-                Console.WriteLine("Successfully subscribed to upload:updates channel");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to subscribe to job status: {ex.Message}");
-                _isSubscribed = false;
             }
         }
 
@@ -349,52 +378,6 @@ namespace FileUploader.Client.Helpers
             catch (Exception ex)
             {
                 Console.WriteLine($"Error in subscription health check: {ex.Message}");
-            }
-        }
-
-        public int GetOfflineQueueCount()
-        {
-            return _offlineQueue.Count;
-        }
-
-        public void Dispose()
-        {
-            try
-            {
-                _disposed = true;
-
-                _retryTimer?.Dispose();
-                _subscriptionCheckTimer?.Dispose();
-
-                if (_sub != null)
-                {
-                    try
-                    {
-                        _sub.Unsubscribe("upload:updates");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error unsubscribing: {ex.Message}");
-                    }
-                }
-
-                if (_redis != null)
-                {
-                    try
-                    {
-                        _redis.ConnectionRestored -= OnConnectionRestored;
-                        _redis.ConnectionFailed -= OnConnectionFailed;
-                        _redis.Dispose();
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error disposing Redis connection: {ex.Message}");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error disposing RedisHelper: {ex.Message}");
             }
         }
     }
