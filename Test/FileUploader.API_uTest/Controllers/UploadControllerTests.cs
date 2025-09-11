@@ -6,7 +6,7 @@ using Moq;
 using NUnit.Framework;
 using System.Text;
 
-namespace FileUploader.API_uTest
+namespace FileUploader.API_uTest.Controllers
 {
     [TestFixture]
     public class UploadControllerTests

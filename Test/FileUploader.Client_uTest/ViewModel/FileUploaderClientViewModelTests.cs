@@ -14,7 +14,7 @@ using System.Xml.Linq;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 
-namespace FileUploader.Client_uTest
+namespace FileUploader.Client_uTest.ViewModel
 {
     [TestFixture]
     public class FileUploaderClientViewModelTests

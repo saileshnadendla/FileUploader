@@ -6,7 +6,7 @@ using Moq;
 using NUnit.Framework;
 using System.Text.Json;
 
-namespace FileUploader.Worker_uTest
+namespace FileUploader.Worker_uTest.Service
 {
     [TestFixture]
     internal class WorkerServiceTests

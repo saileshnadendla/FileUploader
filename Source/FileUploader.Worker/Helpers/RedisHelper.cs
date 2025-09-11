@@ -12,13 +12,18 @@ namespace FileUploader.Worker.Helpers
     public class RedisHelper : IRedisHelper
     {
         private IConnectionMultiplexer _redis;
-        private readonly string _connectionString;
+        private IRedisConnectionHelper _RedisConnectionHelper;
+        private const string _connectionString = "localhost:6379";
         private readonly object _lockObject = new object();
 
-        public RedisHelper(IConnectionMultiplexer redis)
+        public RedisHelper(IConnectionMultiplexer redis) : this(redis, new RedisConnectionHelper())
+        {
+        }
+
+        public RedisHelper(IConnectionMultiplexer redis, IRedisConnectionHelper helper)
         {
             _redis = redis ?? throw new ArgumentNullException(nameof(redis));
-            _connectionString = "localhost:6379";
+            _RedisConnectionHelper = helper;
         }
 
         public async Task<UploadJob> GetUploadJob()
@@ -147,14 +152,7 @@ namespace FileUploader.Worker.Helpers
                         Console.WriteLine("Worker Redis connection lost, attempting to reconnect...");
                         _redis?.Dispose();
 
-                        var configOptions = ConfigurationOptions.Parse(_connectionString);
-                        configOptions.AbortOnConnectFail = false;
-                        configOptions.ConnectTimeout = 5000;
-                        configOptions.SyncTimeout = 5000;
-                        configOptions.ConnectRetry = 3;
-                        configOptions.ReconnectRetryPolicy = new ExponentialRetry(1000, 10000);
-
-                        _redis = ConnectionMultiplexer.Connect(configOptions);
+                        _redis = _RedisConnectionHelper.CreateConnection(_connectionString);
 
                         if (_redis.IsConnected)
                         {

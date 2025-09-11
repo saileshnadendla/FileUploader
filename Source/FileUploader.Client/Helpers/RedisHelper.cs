@@ -14,10 +14,10 @@ namespace FileUploader.Client.Helpers
 {
     internal class RedisHelper : IRedisHelper
     {
-        private ConnectionMultiplexer _redis;
+        private IConnectionMultiplexer _redis;
         private ISubscriber _sub;
         private readonly object _lockObject = new object();
-        private readonly string _connectionString = "localhost:6379";
+        private const string _connectionString = "localhost:6379";
         private bool _isConnecting = false;
         private bool _isSubscribed = false;
         private bool _disposed = false;
@@ -25,14 +25,20 @@ namespace FileUploader.Client.Helpers
         private readonly ConcurrentQueue<string> _offlineQueue = new ConcurrentQueue<string>();
         private readonly Timer _retryTimer;
         private readonly Timer _subscriptionCheckTimer;
+        private readonly IRedisConnectionHelper _redisConnectionHelper;
         private bool _isProcessingOfflineQueue = false;
 
         public event EventHandler<UploadUpdate> UpdateAvailable;
 
-        public RedisHelper()
+        public RedisHelper() : this(new RedisConnectionHelper())
+        {
+        }
+
+        public RedisHelper(IRedisConnectionHelper redisConnectionHelper)
         {
             _retryTimer = new Timer(ProcessOfflineQueue, null, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
             _subscriptionCheckTimer = new Timer(CheckSubscriptionHealth, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+            _redisConnectionHelper = redisConnectionHelper;
 
             _ = Task.Run(async () => await EnsureConnectionAsync());
         }
@@ -116,6 +122,10 @@ namespace FileUploader.Client.Helpers
                             {
                                 UpdateAvailable?.Invoke(this, upd);
                             });
+                        }
+                        else
+                        {
+                            UpdateAvailable?.Invoke(this, upd);
                         }
                     }
                     catch (Exception ex)
@@ -228,14 +238,7 @@ namespace FileUploader.Client.Helpers
                         _isSubscribed = false;
                     }
 
-                    var configOptions = ConfigurationOptions.Parse(_connectionString);
-                    configOptions.ConnectTimeout = 5000;
-                    configOptions.SyncTimeout = 5000;
-                    configOptions.AbortOnConnectFail = false;
-                    configOptions.ConnectRetry = 3;
-                    configOptions.ReconnectRetryPolicy = new ExponentialRetry(1000, 5000);
-
-                    _redis = await ConnectionMultiplexer.ConnectAsync(configOptions);
+                    _redis = await _redisConnectionHelper.CreateConnectionAsync(_connectionString);
 
                     if (_redis.IsConnected)
                     {

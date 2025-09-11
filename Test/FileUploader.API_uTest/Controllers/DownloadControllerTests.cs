@@ -10,7 +10,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace FileUploader.API_uTest
+namespace FileUploader.API_uTest.Controllers
 {
     internal class DownloadControllerTests
     {
