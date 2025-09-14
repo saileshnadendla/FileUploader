@@ -18,12 +18,13 @@ Native windows based File Uploader which will upload the selected files to a clo
 
 ## Assumptions
 1. Client runs on windows desktop - Developed using WPF
-2. File Size limited to small / medium ( < 1GB)
-3. Storage target is local folder (not cloud, though design allows extension to cloud storage)
-4. Prototype works well for single client
-5. Files are retried a finite number of times before sending a failure signal
-6. Job IDs generated using GUIDs - Collision probability is near zero.
-7. Redis availability assumed - if redis is down, client fallbacks to local queue until redis connection is restored
+2. The design is intended to scale reliably for mid-sized user bases.
+3. File Size limited to small / medium ( < 1GB)
+4. Storage target is local folder (not cloud, though design allows extension to cloud storage)
+5. Prototype works well for single client
+6. Files are retried a finite number of times before sending a failure signal
+7. Job IDs generated using GUIDs - Collision probability is near zero.
+8. Redis availability assumed - if redis is down, client fallbacks to local queue until redis connection is restored
 
 ## Tech Stack used
 1. Client - WPF
