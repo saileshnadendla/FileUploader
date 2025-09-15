@@ -25,8 +25,15 @@ jobs:
       - name: Start Redis server
         shell: pwsh
         run: |
-          Start-Process -FilePath "C:\Program Files\Redis\redis-server.exe" -ArgumentList "--port 6379" -WindowStyle Hidden
-          Start-Sleep -Seconds 5
+          $redisPath = Get-ChildItem -Path "C:\ProgramData\chocolatey\bin" -Filter "redis-server.exe" -Recurse | Select-Object -First 1
+          if ($null -ne $redisPath) {
+            Write-Host "Found Redis server at: $($redisPath.FullName)"
+            Start-Process -FilePath $redisPath.FullName -ArgumentList "--port 6379" -WindowStyle Hidden
+            Start-Sleep -Seconds 5
+          } else {
+            Write-Error "Could not find redis-server.exe. The Redis installation may have failed."
+            exit 1
+          }
       
       - name: Restore
         run: dotnet restore
