@@ -38,7 +38,7 @@ namespace FileUploader_sTest
         }
 
         [Test]
-        public async Task FileUpload_ShouldTriggerUpdate()
+        public async Task FileUpload_ClientUploadsFile_ClientReceivesUploadStatus()
         {
             var sub = _redis.GetSubscriber();
             var receivedMessages = new List<UploadUpdate>();
