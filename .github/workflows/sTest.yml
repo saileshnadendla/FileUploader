@@ -23,8 +23,10 @@ jobs:
           choco install redis -y
           
       - name: Start Redis server
+        shell: pwsh
         run: |
-          redis-server --port 6379 &
+          Start-Process -FilePath "C:\Program Files\Redis\redis-server.exe" -ArgumentList "--port 6379" -WindowStyle Hidden
+          Start-Sleep -Seconds 5
       
       - name: Restore
         run: dotnet restore
