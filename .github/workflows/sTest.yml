@@ -24,16 +24,20 @@ jobs:
           curl.exe -Lo kubectl.exe https://dl.k8s.io/release/v1.30.0/bin/windows/amd64/kubectl.exe
           echo "$(Get-Location)" | Out-File -FilePath $env:GITHUB_PATH -Append
 
-      - name: Install KinD
+      - name: Configure kubeconfig
         shell: pwsh
         run: |
-          curl.exe -Lo kind-windows-amd64.exe https://kind.sigs.k8s.io/dl/v0.23.0/kind-windows-amd64.exe
-          Move-Item kind-windows-amd64.exe kind.exe
-          echo "$(Get-Location)" | Out-File -FilePath $env:GITHUB_PATH -Append
+          $env:KUBECONFIG = "$HOME\.kube\config"
+          New-Item -ItemType Directory -Force -Path (Split-Path $env:KUBECONFIG)
+          Set-Content -Path $env:KUBECONFIG -Value "${{ secrets.KUBECONFIG_CONTENTS }}"
+          Write-Host "Kubeconfig configured"
+        env:
+          KUBECONFIG_CONTENTS: ${{ secrets.KUBECONFIG_CONTENTS }}
 
-      - name: Create KinD cluster
-        shell: pwsh
-        run: kind.exe create cluster --name uploader-test --wait 120s
+      - name: Verify cluster access
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
 
       - name: Restore
         run: dotnet restore
@@ -60,7 +64,7 @@ jobs:
           }
 
       - name: Stop uploader services
-        if: always()    # ensures it runs even if previous step failed
+        if: always()
         shell: pwsh
         run: |
           $stopScript = "$(Get-Location)\..\bin\x64\debug\Deploy\Scripts\stop.ps1"
