@@ -37,14 +37,12 @@ jobs:
         run: |
           $startScript = Start-Process -FilePath (Join-Path $(Get-Location) "\..\bin\x64\Debug\APIServer\FileUploader.API.exe") -WorkingDirectory $PSScriptRoot -WindowStyle Hidden
           Write-Host "Running $startScript"
-          & $startScript
 
       - name: Start Worker services
         shell: pwsh
         run: |
           $startScript = Start-Process -FilePath (Join-Path $(Get-Location) "\..\bin\x64\Debug\Worker\FileUploader.Worker.exe") -WorkingDirectory $PSScriptRoot -WindowStyle Hidden
           Write-Host "Running $startScript"
-          & $startScript
 
       - name: Build and Test
         shell: pwsh
