@@ -45,6 +45,6 @@ jobs:
       if: always()
       uses: dorny/test-reporter@v1
       with:
-        name: NUnit Tests
+        name: Unit Tests
         path: ./TestResults/*.trx
         reporter: dotnet-trx

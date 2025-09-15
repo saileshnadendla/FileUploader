@@ -65,7 +65,7 @@ jobs:
           dotnet test $_.FullName `
           --configuration Debug `
           --logger "trx;LogFileName=${projName}_results.trx" `
-          --results-directory ./TestResults
+          --results-directory ./SystemTestResults
           }
 
       - name: Upload test results
@@ -73,12 +73,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: TestResults
-          path: ./TestResults
+          path: ./SystemTestResults
 
       - name: Report Test Results
         if: always()
         uses: dorny/test-reporter@v1
         with:
           name: System Tests
-          path: ./TestResults/*.trx
+          path: ./SystemTestResults/*.trx
           reporter: dotnet-trx
