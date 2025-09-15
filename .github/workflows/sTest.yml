@@ -18,37 +18,31 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Install kubectl
-        shell: pwsh
+      - name: Install Redis
         run: |
-          curl.exe -Lo kubectl.exe https://dl.k8s.io/release/v1.30.0/bin/windows/amd64/kubectl.exe
-          echo "$(Get-Location)" | Out-File -FilePath $env:GITHUB_PATH -Append
-
-      - name: Configure kubeconfig
-        shell: pwsh
+          choco install redis-64bit -y
+          
+      - name: Start Redis server
         run: |
-          $env:KUBECONFIG = "$HOME\.kube\config"
-          New-Item -ItemType Directory -Force -Path (Split-Path $env:KUBECONFIG)
-          Set-Content -Path $env:KUBECONFIG -Value "${{ secrets.KUBECONFIG_CONTENTS }}"
-          Write-Host "Kubeconfig configured"
-        env:
-          KUBECONFIG_CONTENTS: ${{ secrets.KUBECONFIG_CONTENTS }}
-
-      - name: Verify cluster access
-        run: |
-          kubectl cluster-info
-          kubectl get nodes
-
+          redis-server --port 6379 &
+      
       - name: Restore
         run: dotnet restore
 
       - name: Build solution
         run: dotnet build
 
-      - name: Start uploader services
+      - name: Start API services
         shell: pwsh
         run: |
-          $startScript = "$(Get-Location)\..\bin\x64\debug\Deploy\Scripts\start.ps1"
+          $startScript = Start-Process -FilePath (Join-Path $(Get-Location) "\..\bin\x64\Debug\APIServer\FileUploader.API.exe") -WorkingDirectory $PSScriptRoot -WindowStyle Hidden
+          Write-Host "Running $startScript"
+          & $startScript
+
+      - name: Start Worker services
+        shell: pwsh
+        run: |
+          $startScript = Start-Process -FilePath (Join-Path $(Get-Location) "\..\bin\x64\Debug\Worker\FileUploader.Worker.exe") -WorkingDirectory $PSScriptRoot -WindowStyle Hidden
           Write-Host "Running $startScript"
           & $startScript
 
@@ -62,14 +56,6 @@ jobs:
           --logger "trx;LogFileName=${projName}_results.trx" `
           --results-directory ./TestResults
           }
-
-      - name: Stop uploader services
-        if: always()
-        shell: pwsh
-        run: |
-          $stopScript = "$(Get-Location)\..\bin\x64\debug\Deploy\Scripts\stop.ps1"
-          Write-Host "Running $stopScript"
-          & $stopScript
 
       - name: Upload test results
         if: always()
