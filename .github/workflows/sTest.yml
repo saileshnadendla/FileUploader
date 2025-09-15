@@ -20,7 +20,7 @@ jobs:
 
       - name: Install Redis
         run: |
-          choco install redis-64bit -y
+          choco install redis -y
           
       - name: Start Redis server
         run: |
