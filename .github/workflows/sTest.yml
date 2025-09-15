@@ -1,0 +1,83 @@
+name: System Test - File Uploader
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  system-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install kubectl
+        shell: pwsh
+        run: |
+          curl.exe -Lo kubectl.exe https://dl.k8s.io/release/v1.30.0/bin/windows/amd64/kubectl.exe
+          echo "$(Get-Location)" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Install KinD
+        shell: pwsh
+        run: |
+          curl.exe -Lo kind-windows-amd64.exe https://kind.sigs.k8s.io/dl/v0.23.0/kind-windows-amd64.exe
+          Move-Item kind-windows-amd64.exe kind.exe
+          echo "$(Get-Location)" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Create KinD cluster
+        shell: pwsh
+        run: kind.exe create cluster --name uploader-test --wait 120s
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build solution
+        run: dotnet build
+
+      - name: Start uploader services
+        shell: pwsh
+        run: |
+          $startScript = "$(Get-Location)\..\bin\x64\debug\Deploy\Scripts\start.ps1"
+          Write-Host "Running $startScript"
+          & $startScript
+
+      - name: Build and Test
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse -Filter *.csproj | Where-Object { $_.FullName -match "_sTest" } | ForEach-Object {
+          $projName = $_.BaseName
+          dotnet test $_.FullName `
+          --configuration Debug `
+          --logger "trx;LogFileName=${projName}_results.trx" `
+          --results-directory ./TestResults
+          }
+
+      - name: Stop uploader services
+        if: always()    # ensures it runs even if previous step failed
+        shell: pwsh
+        run: |
+          $stopScript = "$(Get-Location)\..\bin\x64\debug\Deploy\Scripts\stop.ps1"
+          Write-Host "Running $stopScript"
+          & $stopScript
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TestResults
+          path: ./TestResults
+
+      - name: Report Test Results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: System Tests
+          path: ./TestResults/*.trx
+          reporter: dotnet-trx
